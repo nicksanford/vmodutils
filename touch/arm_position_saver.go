@@ -40,7 +40,7 @@ type ArmPositionSaverConfig struct {
 	Motion         string
 	Point          r3.Vector
 	Orientation    spatialmath.OrientationVectorDegrees
-	VisionServices []string
+	VisionServices []string `json:"vision_services`
 	Extra          map[string]interface{}
 }
 
