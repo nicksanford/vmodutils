@@ -35,13 +35,13 @@ func init() {
 }
 
 type ArmPositionSaverConfig struct {
-	Arm            string
-	Joints         []float64
-	Motion         string
-	Point          r3.Vector
-	Orientation    spatialmath.OrientationVectorDegrees
-	VisionServices []string `json:"vision_services`
-	Extra          map[string]interface{}
+	Arm            string                               `json:"arm,omitempty"`
+	Joints         []float64                            `json:"joints,omitempty"`
+	Motion         string                               `json:"motion,omitempty"`
+	Point          r3.Vector                            `json:"point,omitzero"`
+	Orientation    spatialmath.OrientationVectorDegrees `json:"orientation,omitzero"`
+	VisionServices []string                             `json:"vision_services,omitempty"`
+	Extra          map[string]interface{}               `json:"extra,omitempty"`
 }
 
 func (c *ArmPositionSaverConfig) Validate(path string) ([]string, []string, error) {
@@ -93,23 +93,20 @@ func newArmPositionSaver(ctx context.Context, deps resource.Dependencies, config
 
 	if len(newConf.VisionServices) > 0 {
 		for _, name := range newConf.VisionServices {
-			v, err := vision.FromDependencies(deps, name)
+			v, err := vision.FromProvider(deps, name)
 			if err != nil {
 				return nil, err
 			}
 			aps.visionServices = append(aps.visionServices, v)
 		}
 	}
-	aps.fsSvc, err = framesystem.FromDependencies(deps)
-	if err != nil {
-		return nil, err
-	}
-	fsConfig, err := aps.fsSvc.FrameSystemConfig(ctx)
+
+	aps.fsSvc, err = resource.FromProvider[framesystem.Service](deps, framesystem.PublicServiceName)
 	if err != nil {
 		return nil, err
 	}
 
-	aps.fs, err = referenceframe.NewFrameSystem("", fsConfig.Parts, nil)
+	aps.fs, err = framesystem.NewFromService(ctx, aps.fsSvc, nil)
 	if err != nil {
 		return nil, err
 	}
