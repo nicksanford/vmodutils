@@ -17,12 +17,12 @@ import (
 
 const captureDirEnvVar = "VIAM_CAPTURE_DIR"
 
-func GetPathInCaptureDir(passID string) (string, error) {
+func GetPathInCaptureDir(subDirName string) (string, error) {
 	captureDir, ok := os.LookupEnv(captureDirEnvVar)
 	if !ok {
 		return "", fmt.Errorf("%s environment variable needs to be set in order to save files", captureDirEnvVar)
 	}
-	return filepath.Join(captureDir, passID), nil
+	return filepath.Join(captureDir, subDirName), nil
 }
 
 // EnsureDirExists creates the target directory path if it does not exist
