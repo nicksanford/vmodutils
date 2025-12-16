@@ -53,7 +53,7 @@ func EnsureDir(path string) error {
 	return nil
 }
 
-func SaveFileToSync(b []byte, filename, passID string, t time.Time) error {
+func SaveFile(b []byte, filename, passID string, t time.Time) error {
 	// if passID is nil then there is no passID and we can't capture
 	// this may happen b/c the code is being executed outside of the context of a production
 	// robot (such as a unit test) and in such a case we don't want to save these files to disk
@@ -74,18 +74,18 @@ func SaveFileToSync(b []byte, filename, passID string, t time.Time) error {
 	return nil
 }
 
-func SaveJsonToSync(data any, filename, passID string, t time.Time) error {
+func SaveJsonFile(data any, filename, passID string, t time.Time) error {
 	bytes, err := json.Marshal(data)
 	if err != nil {
 		return err
 	}
-	return SaveFileToSync(bytes, filename, passID, t)
+	return SaveFile(bytes, filename, passID, t)
 }
 
-func SavePCToSync(data pointcloud.PointCloud, filename, passID string, t time.Time) error {
+func SavePointCloudFile(data pointcloud.PointCloud, filename, passID string, t time.Time) error {
 	bytes, err := pointcloud.ToBytes(data)
 	if err != nil {
 		return err
 	}
-	return SaveFileToSync(bytes, filename, passID, t)
+	return SaveFile(bytes, filename, passID, t)
 }

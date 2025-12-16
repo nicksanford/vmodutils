@@ -277,18 +277,18 @@ func GetMergedPointCloud(ctx context.Context, positions []toggleswitch.Switch, s
 				logger.Warn("saveFilesToCaptureDir was true but no traceID found on context, refusing to save files to capture dir")
 			} else {
 				// Save pcd from camera in camera frame
-				if err := file_utils.SavePCToSync(pc, "imaging_camera_frame_"+strconv.Itoa(i)+".pcd", traceID, time.Now()); err != nil {
+				if err := file_utils.SavePointCloudFile(pc, "imaging_camera_frame_"+strconv.Itoa(i)+".pcd", traceID, time.Now()); err != nil {
 					return nil, err
 				}
 
 				// Save camera pose in world frame
 				logger.Infof("camPose: %v", pif)
-				if err := file_utils.SaveJsonToSync(pif, "imaging_cam_pose_in_world_"+strconv.Itoa(i)+".json", traceID, time.Now()); err != nil {
+				if err := file_utils.SaveJsonFile(pif, "imaging_cam_pose_in_world_"+strconv.Itoa(i)+".json", traceID, time.Now()); err != nil {
 					return nil, err
 				}
 
 				// Save pcd from camera in world frame
-				if err := file_utils.SavePCToSync(pcInWorld, "imaging_"+referenceframe.World+"_frame_"+strconv.Itoa(i)+".pcd", traceID, time.Now()); err != nil {
+				if err := file_utils.SavePointCloudFile(pcInWorld, "imaging_"+referenceframe.World+"_frame_"+strconv.Itoa(i)+".pcd", traceID, time.Now()); err != nil {
 					return nil, err
 				}
 
@@ -324,7 +324,7 @@ func GetMergedPointCloud(ctx context.Context, positions []toggleswitch.Switch, s
 					}
 
 					capturedAt := imagesMd.CapturedAt.Format("January_02_2006_15_04_05")
-					if err := file_utils.SaveFileToSync(imageData, "imaging_"+capturedAt+"_"+strconv.Itoa(i)+ext, traceID, time.Now()); err != nil {
+					if err := file_utils.SaveFile(imageData, "imaging_"+capturedAt+"_"+strconv.Itoa(i)+ext, traceID, time.Now()); err != nil {
 						return nil, err
 					}
 				}
