@@ -116,7 +116,7 @@ func (mapc *MultipleArmPosesCamera) DoCommand(ctx context.Context, cmd map[strin
 }
 
 func (mapc *MultipleArmPosesCamera) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
-	return GetMergedPointCloud(ctx, mapc.positions, mapc.cfg.sleepTime(), mapc.src, extra, mapc.fsSvc, false /* saveFilesToCaptureDir */, mapc.logger)
+	return GetMergedPointCloud(ctx, mapc.positions, mapc.cfg.sleepTime(), mapc.src, extra, mapc.fsSvc, mapc.logger)
 }
 
 func (mapc *MultipleArmPosesCamera) Properties(ctx context.Context) (camera.Properties, error) {
