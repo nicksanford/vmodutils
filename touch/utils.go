@@ -1,19 +1,30 @@
 package touch
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/components/camera"
 	toggleswitch "go.viam.com/rdk/components/switch"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
+	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/utils/trace"
+
+	"github.com/erh/vmodutils/file_utils"
 )
 
 func PCFindHighestInRegion(pc pointcloud.PointCloud, box image.Rectangle) r3.Vector {
@@ -223,11 +234,16 @@ func GetApproachPoint(p r3.Vector, deltaLinear float64, o *spatialmath.Orientati
 	return approachPoint
 }
 
-func GetMergedPointCloud(ctx context.Context, positions []toggleswitch.Switch, sleepTime time.Duration, srcCamera camera.Camera, extraForCamera map[string]interface{}, fsSvc framesystem.Service) (pointcloud.PointCloud, error) {
+func GetMergedPointCloud(ctx context.Context, positions []toggleswitch.Switch, sleepTime time.Duration, srcCamera camera.Camera, extraForCamera map[string]interface{}, fsSvc framesystem.Service, saveFilesToCaptureDir bool, logger logging.Logger) (pointcloud.PointCloud, error) {
 	pcsInWorld := []pointcloud.PointCloud{}
 	totalSize := 0
 
-	for _, p := range positions {
+	var traceID string
+	if span := trace.FromContext(ctx); span != nil {
+		traceID = span.SpanContext().TraceID().String()
+	}
+
+	for i, p := range positions {
 		err := p.SetPosition(ctx, 2, nil)
 		if err != nil {
 			return nil, err
@@ -255,6 +271,74 @@ func GetMergedPointCloud(ctx context.Context, positions []toggleswitch.Switch, s
 		}
 
 		pcsInWorld = append(pcsInWorld, pcInWorld)
+
+		if saveFilesToCaptureDir {
+			if traceID == "" {
+				logger.Warn("saveFilesToCaptureDir was true but no traceID found on context, refusing to save files to capture dir")
+			} else {
+				// Save arm joint position goal
+				inputs, err := p.GetPosition(ctx, nil)
+				if err != nil {
+					return nil, err
+				}
+				if err := file_utils.SaveJsonToSync(inputs, "imaging_joint_position_goal_"+strconv.Itoa(i)+".json", traceID, time.Now()); err != nil {
+					return nil, err
+				}
+
+				// Save pcd from camera in camera frame
+				if err := file_utils.SavePCToSync(pc, "imaging_camera_frame_"+strconv.Itoa(i)+".pcd", traceID, time.Now()); err != nil {
+					return nil, err
+				}
+
+				// Save camera pose in world frame
+				logger.Infof("camPose: %v", pif)
+				if err := file_utils.SaveJsonToSync(pif, "imaging_cam_pose_in_world_"+strconv.Itoa(i)+".json", traceID, time.Now()); err != nil {
+					return nil, err
+				}
+
+				// Save pcd from camera in world frame
+				if err := file_utils.SavePCToSync(pcInWorld, "imaging_"+referenceframe.World+"_frame_"+strconv.Itoa(i)+".pcd", traceID, time.Now()); err != nil {
+					return nil, err
+				}
+
+				// Save images from camera
+				images, imagesMd, err := srcCamera.Images(ctx, nil, nil)
+				if err != nil {
+					return nil, fmt.Errorf("couldn't get pointcloud from camera: %w", err)
+				}
+				for _, im := range images {
+					ext := ".jpeg"
+					rawImage, err := im.Image(ctx)
+					if err != nil {
+						logger.Warn("unable to obtain Image from NamedImage!?")
+						continue
+					}
+					var imageData []byte
+
+					// Try to get raw data from LazyEncodedImage first (most efficient)
+					li, ok := rawImage.(*rimage.LazyEncodedImage)
+					if ok {
+						if li.MIMEType() != rutils.MimeTypeJPEG {
+							ext = ".raw"
+						}
+						imageData = li.RawData()
+					} else {
+						// For non-lazy images, encode to JPEG
+						var buf bytes.Buffer
+						if err := jpeg.Encode(&buf, rawImage, &jpeg.Options{Quality: 90}); err != nil {
+							logger.Warnf("failed to encode image %d to JPEG: %v", i, err)
+							continue
+						}
+						imageData = buf.Bytes()
+					}
+
+					capturedAt := imagesMd.CapturedAt.Format("January_02_2006_15_04_05")
+					if err := file_utils.SaveFileToSync(imageData, "imaging_"+capturedAt+"_"+strconv.Itoa(i)+ext, traceID, time.Now()); err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
 	}
 
 	big := pointcloud.NewBasicPointCloud(totalSize)
