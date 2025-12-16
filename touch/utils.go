@@ -276,15 +276,6 @@ func GetMergedPointCloud(ctx context.Context, positions []toggleswitch.Switch, s
 			if traceID == "" {
 				logger.Warn("saveFilesToCaptureDir was true but no traceID found on context, refusing to save files to capture dir")
 			} else {
-				// Save arm joint position goal
-				inputs, err := p.GetPosition(ctx, nil)
-				if err != nil {
-					return nil, err
-				}
-				if err := file_utils.SaveJsonToSync(inputs, "imaging_joint_position_goal_"+strconv.Itoa(i)+".json", traceID, time.Now()); err != nil {
-					return nil, err
-				}
-
 				// Save pcd from camera in camera frame
 				if err := file_utils.SavePCToSync(pc, "imaging_camera_frame_"+strconv.Itoa(i)+".pcd", traceID, time.Now()); err != nil {
 					return nil, err
