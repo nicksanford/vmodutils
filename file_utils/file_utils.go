@@ -1,13 +1,17 @@
 package file_utils
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/jpeg"
 	"os"
 	"path/filepath"
 	"time"
 
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/rimage"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -88,4 +92,27 @@ func SavePointCloudFile(data pointcloud.PointCloud, filename, passID string, t t
 		return err
 	}
 	return SaveFile(bytes, filename, passID, t)
+}
+
+func SaveImageFile(rawImage image.Image, filenameWithoutExtension, passID string, t time.Time) error {
+	var imageData []byte
+	ext := ".jpeg"
+
+	// Try to get raw data from LazyEncodedImage first (most efficient)
+	li, ok := rawImage.(*rimage.LazyEncodedImage)
+	if ok {
+		if li.MIMEType() != rutils.MimeTypeJPEG {
+			ext = ".raw"
+		}
+		imageData = li.RawData()
+	} else {
+		// For non-lazy images, encode to JPEG
+		var buf bytes.Buffer
+		if err := jpeg.Encode(&buf, rawImage, &jpeg.Options{Quality: 90}); err != nil {
+			return err
+		}
+		imageData = buf.Bytes()
+	}
+
+	return SaveFile(imageData, filenameWithoutExtension+ext, passID, t)
 }

@@ -1,12 +1,10 @@
 package touch
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"image"
 	"image/color"
-	"image/jpeg"
 	"math"
 	"strconv"
 	"time"
@@ -18,10 +16,8 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
-	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/utils/trace"
 
 	"github.com/erh/vmodutils/file_utils"
@@ -295,36 +291,19 @@ func GetMergedPointCloud(ctx context.Context, positions []toggleswitch.Switch, s
 				// Save images from camera
 				images, imagesMd, err := srcCamera.Images(ctx, nil, nil)
 				if err != nil {
-					return nil, fmt.Errorf("couldn't get pointcloud from camera: %w", err)
+					return nil, fmt.Errorf("couldn't get images from camera: %w", err)
 				}
 				for _, im := range images {
-					ext := ".jpeg"
 					rawImage, err := im.Image(ctx)
 					if err != nil {
 						logger.Warn("unable to obtain Image from NamedImage!?")
 						continue
 					}
-					var imageData []byte
-
-					// Try to get raw data from LazyEncodedImage first (most efficient)
-					li, ok := rawImage.(*rimage.LazyEncodedImage)
-					if ok {
-						if li.MIMEType() != rutils.MimeTypeJPEG {
-							ext = ".raw"
-						}
-						imageData = li.RawData()
-					} else {
-						// For non-lazy images, encode to JPEG
-						var buf bytes.Buffer
-						if err := jpeg.Encode(&buf, rawImage, &jpeg.Options{Quality: 90}); err != nil {
-							logger.Warnf("failed to encode image %d to JPEG: %v", i, err)
-							continue
-						}
-						imageData = buf.Bytes()
-					}
 
 					capturedAt := imagesMd.CapturedAt.Format("January_02_2006_15_04_05")
-					if err := file_utils.SaveFile(imageData, "imaging_"+capturedAt+"_"+strconv.Itoa(i)+ext, traceID, time.Now()); err != nil {
+					filenameWithoutExtension := "imaging_" + capturedAt + "_" + strconv.Itoa(i)
+					err = file_utils.SaveImageFile(rawImage, filenameWithoutExtension, traceID, time.Now())
+					if err != nil {
 						return nil, err
 					}
 				}
