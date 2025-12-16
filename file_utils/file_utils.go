@@ -15,12 +15,14 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var (
-	CaptureDirectory = filepath.Join(rutils.ViamDotDir, "capture")
-)
+const captureDirEnvVar = "VIAM_CAPTURE_DIR"
 
-func CaptureDir(passID string) string {
-	return filepath.Join(CaptureDirectory, passID)
+func GetPathInCaptureDir(passID string) (string, error) {
+	captureDir, ok := os.LookupEnv(captureDirEnvVar)
+	if !ok {
+		return "", fmt.Errorf("%s environment variable needs to be set in order to save files", captureDirEnvVar)
+	}
+	return filepath.Join(captureDir, passID), nil
 }
 
 // EnsureDirExists creates the target directory path if it does not exist
@@ -57,44 +59,39 @@ func EnsureDir(path string) error {
 	return nil
 }
 
-func SaveFile(b []byte, filename, passID string, t time.Time) error {
-	// if passID is nil then there is no passID and we can't capture
-	// this may happen b/c the code is being executed outside of the context of a production
-	// robot (such as a unit test) and in such a case we don't want to save these files to disk
-	if passID == "" {
-		return nil
-	}
-	timestamp := t.Format("January_02_2006_15_04_05")
-	capturePassDir := CaptureDir(passID)
+func SaveFile(b []byte, dirPath, filename string, t time.Time) error {
 	// create destination directory if it doesn't exist
-	if err := EnsureDir(capturePassDir); err != nil {
+	if err := EnsureDir(dirPath); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
-	dst := filepath.Join(capturePassDir, fmt.Sprintf("%s_%s", timestamp, filename))
+	formattedTimestamp := t.Format("January_02_2006_15_04_05")
+	dst := filepath.Join(dirPath, fmt.Sprintf("%s_%s", formattedTimestamp, filename))
+
 	if err := os.WriteFile(dst, b, 0o600); err != nil {
 		return err
 	}
+
 	return nil
 }
 
-func SaveJsonFile(data any, filename, passID string, t time.Time) error {
+func SaveJsonFile(data any, dirPath, filename string, t time.Time) error {
 	bytes, err := json.Marshal(data)
 	if err != nil {
 		return err
 	}
-	return SaveFile(bytes, filename, passID, t)
+	return SaveFile(bytes, dirPath, filename, t)
 }
 
-func SavePointCloudFile(data pointcloud.PointCloud, filename, passID string, t time.Time) error {
+func SavePointCloudFile(data pointcloud.PointCloud, dirPath, filename string, t time.Time) error {
 	bytes, err := pointcloud.ToBytes(data)
 	if err != nil {
 		return err
 	}
-	return SaveFile(bytes, filename, passID, t)
+	return SaveFile(bytes, dirPath, filename, t)
 }
 
-func SaveImageFile(rawImage image.Image, filenameWithoutExtension, passID string, t time.Time) error {
+func SaveImageFile(rawImage image.Image, dirPath, filenameWithoutExtension string, t time.Time) error {
 	var imageData []byte
 	ext := ".jpeg"
 
@@ -114,5 +111,5 @@ func SaveImageFile(rawImage image.Image, filenameWithoutExtension, passID string
 		imageData = buf.Bytes()
 	}
 
-	return SaveFile(imageData, filenameWithoutExtension+ext, passID, t)
+	return SaveFile(imageData, dirPath, filenameWithoutExtension+ext, t)
 }

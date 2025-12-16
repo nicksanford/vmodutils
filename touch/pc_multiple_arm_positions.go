@@ -60,7 +60,6 @@ func newMultipleArmPoses(ctx context.Context, deps resource.Dependencies, config
 
 	cc := &MultipleArmPosesCamera{
 		name:      config.ResourceName(),
-		logger:    logger,
 		cfg:       newConf,
 		positions: []toggleswitch.Switch{},
 	}
@@ -89,9 +88,8 @@ type MultipleArmPosesCamera struct {
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
 
-	name   resource.Name
-	logger logging.Logger
-	cfg    *MultipleArmPosesConfig
+	name resource.Name
+	cfg  *MultipleArmPosesConfig
 
 	fsSvc framesystem.Service
 
@@ -116,7 +114,7 @@ func (mapc *MultipleArmPosesCamera) DoCommand(ctx context.Context, cmd map[strin
 }
 
 func (mapc *MultipleArmPosesCamera) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
-	return GetMergedPointCloud(ctx, mapc.positions, mapc.cfg.sleepTime(), mapc.src, extra, mapc.fsSvc, mapc.logger)
+	return GetMergedPointCloud(ctx, mapc.positions, mapc.cfg.sleepTime(), mapc.src, extra, mapc.fsSvc)
 }
 
 func (mapc *MultipleArmPosesCamera) Properties(ctx context.Context) (camera.Properties, error) {

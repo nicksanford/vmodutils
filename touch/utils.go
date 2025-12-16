@@ -13,7 +13,6 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	toggleswitch "go.viam.com/rdk/components/switch"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot/framesystem"
@@ -230,7 +229,7 @@ func GetApproachPoint(p r3.Vector, deltaLinear float64, o *spatialmath.Orientati
 	return approachPoint
 }
 
-func GetMergedPointCloud(ctx context.Context, positions []toggleswitch.Switch, sleepTime time.Duration, srcCamera camera.Camera, extraForCamera map[string]interface{}, fsSvc framesystem.Service, logger logging.Logger) (pointcloud.PointCloud, error) {
+func GetMergedPointCloud(ctx context.Context, positions []toggleswitch.Switch, sleepTime time.Duration, srcCamera camera.Camera, extraForCamera map[string]interface{}, fsSvc framesystem.Service) (pointcloud.PointCloud, error) {
 	pcsInWorld := []pointcloud.PointCloud{}
 	totalSize := 0
 
@@ -268,43 +267,46 @@ func GetMergedPointCloud(ctx context.Context, positions []toggleswitch.Switch, s
 
 		pcsInWorld = append(pcsInWorld, pcInWorld)
 
-        if traceID != "" {
-            // Save pcd from camera in camera frame
-            if err := file_utils.SavePointCloudFile(pc, "imaging_camera_frame_"+strconv.Itoa(i)+".pcd", traceID, time.Now()); err != nil {
-                return nil, err
-            }
+		if traceID != "" {
+			dirPath, err := file_utils.GetPathInCaptureDir(traceID)
+			if err != nil {
+				return nil, err
+			}
 
-            // Save camera pose in world frame
-            logger.Infof("camPose: %v", pif)
-            if err := file_utils.SaveJsonFile(pif, "imaging_cam_pose_in_world_"+strconv.Itoa(i)+".json", traceID, time.Now()); err != nil {
-                return nil, err
-            }
+			// Save pcd from camera in camera frame
+			if err := file_utils.SavePointCloudFile(pc, dirPath, "imaging_camera_frame_"+strconv.Itoa(i)+".pcd", time.Now()); err != nil {
+				return nil, err
+			}
 
-            // Save pcd from camera in world frame
-            if err := file_utils.SavePointCloudFile(pcInWorld, "imaging_"+referenceframe.World+"_frame_"+strconv.Itoa(i)+".pcd", traceID, time.Now()); err != nil {
-                return nil, err
-            }
+			// Save camera pose in world frame
+			if err := file_utils.SaveJsonFile(pif, dirPath, "imaging_cam_pose_in_world_"+strconv.Itoa(i)+".json", time.Now()); err != nil {
+				return nil, err
+			}
 
-            // Save images from camera
-            images, imagesMd, err := srcCamera.Images(ctx, nil, nil)
-            if err != nil {
-                return nil, fmt.Errorf("couldn't get images from camera: %w", err)
-            }
-            for _, im := range images {
-                rawImage, err := im.Image(ctx)
-                if err != nil {
-                    logger.Warn("unable to obtain Image from NamedImage!?")
-                    continue
-                }
+			// Save pcd from camera in world frame
+			if err := file_utils.SavePointCloudFile(pcInWorld, dirPath, "imaging_"+referenceframe.World+"_frame_"+strconv.Itoa(i)+".pcd", time.Now()); err != nil {
+				return nil, err
+			}
 
-                capturedAt := imagesMd.CapturedAt.Format("January_02_2006_15_04_05")
-                filenameWithoutExtension := "imaging_" + capturedAt + "_" + strconv.Itoa(i)
-                err = file_utils.SaveImageFile(rawImage, filenameWithoutExtension, traceID, time.Now())
-                if err != nil {
-                    return nil, err
-                }
-            }
-        }
+			// Save images from camera
+			images, imagesMd, err := srcCamera.Images(ctx, nil, nil)
+			if err != nil {
+				return nil, fmt.Errorf("couldn't get images from camera: %w", err)
+			}
+			for _, im := range images {
+				rawImage, err := im.Image(ctx)
+				if err != nil {
+					return nil, err
+				}
+
+				capturedAt := imagesMd.CapturedAt.Format("January_02_2006_15_04_05")
+				filenameWithoutExtension := "imaging_" + capturedAt + "_" + strconv.Itoa(i)
+				err = file_utils.SaveImageFile(rawImage, dirPath, filenameWithoutExtension, time.Now())
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 	}
 
 	// Merge the individual pointclouds into one pointcloud
@@ -317,11 +319,16 @@ func GetMergedPointCloud(ctx context.Context, positions []toggleswitch.Switch, s
 		}
 	}
 
-    if traceID != "" {
-        // Save merged pcd
-		if err := file_utils.SavePointCloudFile(big, "merged.pcd", traceID, time.Now()); err != nil {
+	if traceID != "" {
+		dirPath, err := file_utils.GetPathInCaptureDir(traceID)
+		if err != nil {
 			return nil, err
 		}
-    }
+
+		// Save merged pcd
+		if err := file_utils.SavePointCloudFile(big, dirPath, "merged.pcd", time.Now()); err != nil {
+			return nil, err
+		}
+	}
 	return big, nil
 }
