@@ -1,9 +1,9 @@
 package touch
 
 import (
-    "errors"
+	"errors"
 )
 
 var (
-    ErrCannotSpecifyGoalStateInExtra = errors.New("cannot specify 'goal_state' in 'extra', should be specified via 'joints'")
+	ErrCannotSpecifyGoalStateInExtra = errors.New("cannot specify 'goal_state' in 'extra', should be specified via 'joints'")
 )
